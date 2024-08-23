@@ -1,0 +1,9 @@
+/target
+sol_sdk.js
+package.json
+package-lock.json
+example.js
+yarn.lock
+/node_modules
+.vscode
+README.md
