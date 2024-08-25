@@ -1,13 +1,12 @@
-use std::sync::Arc;
-
 use futures::future::join_all;
 use futures::StreamExt;
 use solana_account_decoder::{UiAccount, UiAccountData, UiAccountEncoding};
-use solana_client::nonblocking::pubsub_client::PubsubClient;
-use solana_client::rpc_config::RpcAccountInfoConfig;
-use solana_client::rpc_response::Response;
-use solana_sdk::commitment_config::CommitmentConfig;
-use solana_sdk::pubkey::Pubkey;
+use solana_client::{
+    nonblocking::pubsub_client::PubsubClient, rpc_config::RpcAccountInfoConfig,
+    rpc_response::Response,
+};
+use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
+use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
 
 use crate::strategy::StreamMessage;
@@ -16,12 +15,7 @@ pub struct SolanaDexListener {
     tx: mpsc::Sender<StreamMessage>,
     pubsub_client: Arc<PubsubClient>,
 }
-#[derive(Default, Debug, PartialEq)]
-pub struct RaydiumVault {
-    pub addr: Pubkey,
-    pub amount: f64,
-    pub slot: u64,
-}
+
 #[derive(Debug)]
 pub struct RaydiumPool {
     pub token0_amount: f64,
@@ -31,7 +25,7 @@ pub struct RaydiumPool {
     pub last_modified_slot: u64,
 }
 
-fn parse_message(addr: Pubkey, response: Response<UiAccount>) -> Option<(u64, f64)> {
+fn parse_message(response: Response<UiAccount>) -> Option<(u64, f64)> {
     let slot = response.context.slot;
     if let UiAccountData::Json(parsed) = response.value.data {
         let amount = parsed.parsed["info"]["tokenAmount"]["amount"]
@@ -84,10 +78,8 @@ impl SolanaDexListener {
                     .unwrap();
 
                 while let Some(response) = stream.next().await {
-                    // println!("response is: {:#?}", response);
-                    let (slot, amount) = parse_message(addr, response.clone()).unwrap();
+                    let (slot, amount) = parse_message(response.clone()).unwrap();
                     let mut ray_pool = ray_pool_cloned.lock().await;
-                    // println!("ray pool is: {:#?}", ray_pool);
                     if ray_pool.token0_addr == addr {
                         ray_pool.token0_amount = amount;
                         if ray_pool.last_modified_slot != slot {
@@ -119,14 +111,12 @@ impl SolanaDexListener {
 }
 #[cfg(test)]
 mod test_sol {
-
     use super::*;
-    use serde_json::json;
     #[tokio::test]
     async fn test_sol() {
         let (tx, rx) = mpsc::channel(100);
 
-        let task = tokio::spawn(async move {
+        tokio::spawn(async move {
             let solana_url =
                 "wss://mainnet.helius-rpc.com/?api-key=115eda22-77db-42e6-916c-9f53b21a5538";
 
@@ -142,15 +132,5 @@ mod test_sol {
 
             sol_client.subscribe_and_listen(vault_addrs.clone()).await;
         });
-        let msg = json!({
-            "event": "orderbook",
-            "data": {
-                // Add sample orderbook data here
-            }
-        })
-        .to_string();
-        tokio::select! {
-            val = task =>  {println!("zz");}
-        }
     }
 }

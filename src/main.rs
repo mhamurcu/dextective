@@ -1,10 +1,11 @@
-use gate::GatePublicWebsocketClient;
-use solana_dex::SolanaDexListener;
 use solana_sdk::pubkey::Pubkey;
 use std::sync::Arc;
+use tokio::sync::mpsc;
+
+use gate::GatePublicWebsocketClient;
+use solana_dex::SolanaDexListener;
 use strategy::Strategy;
 
-use tokio::sync::mpsc;
 mod gate;
 mod solana_dex;
 mod strategy;
@@ -22,10 +23,13 @@ async fn main() {
 
     let (tx, rx) = mpsc::channel(100);
     let cloned_tx = tx.clone();
+
+    //Cex stream
     tokio::spawn(async move {
         let gate_client = GatePublicWebsocketClient::new(cloned_tx);
         gate_client.connect_and_subscribe().await;
     });
+    //Dex stream
     tokio::spawn(async move {
         let sol_client = Arc::new(SolanaDexListener::new(solana_url.to_string(), tx.clone()).await);
         sol_client.subscribe_and_listen(vault_addrs.clone()).await;

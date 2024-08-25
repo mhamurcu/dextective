@@ -1,13 +1,12 @@
-use crate::strategy::StreamMessage;
 use futures::{SinkExt, StreamExt};
-use serde::de::Error;
-use serde::{Deserialize, Serialize};
+use serde::{de::Error, Deserialize, Serialize};
 use serde_json::json;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
-use tokio_tungstenite::connect_async;
-use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::{connect_async, tungstenite::Message};
 use url::Url;
+
+use crate::strategy::StreamMessage;
 
 fn float_as_string<'de, D>(deserializer: D) -> Result<f64, D::Error>
 where
@@ -32,7 +31,6 @@ pub enum WebsocketEvent {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, PartialOrd)]
 pub struct OrderBook {
-    // Undocumented
     #[serde(rename = "b", deserialize_with = "float_as_string")]
     pub best_bid: f64,
     #[serde(rename = "a", deserialize_with = "float_as_string")]
@@ -55,7 +53,7 @@ impl GatePublicWebsocketClient<'_> {
     }
     pub async fn connect_and_subscribe(&self) {
         let (ws_stream, _) = connect_async(Url::parse(self.url).unwrap()).await.unwrap();
-        let (mut write, mut read) = ws_stream.split();
+        let (mut write, read) = ws_stream.split();
         let start = SystemTime::now();
         let since_the_epoch = start.duration_since(UNIX_EPOCH).unwrap();
         let current_time = since_the_epoch.as_secs();
@@ -108,7 +106,7 @@ impl GatePublicWebsocketClient<'_> {
                     println!("Received Subscription Response: {:?}", response);
                 }
                 Ok(None) => {
-                    println!("None case happened");
+                    println!("Not specified event");
                 }
                 Err(e) => {
                     println!("Error receiving event: {:?}", e);
@@ -160,27 +158,14 @@ impl GatePublicWebsocketClient<'_> {
 }
 #[cfg(test)]
 mod tests {
-
     use super::*;
-    use serde_json::json;
     #[tokio::test]
     async fn test_gate() {
         let (tx, rx) = mpsc::channel(100);
 
-        let task = tokio::spawn(async move {
+        tokio::spawn(async move {
             let gate_client = GatePublicWebsocketClient::new(tx.clone());
             gate_client.connect_and_subscribe().await;
         });
-        println!("as");
-        let msg = json!({
-            "event": "orderbook",
-            "data": {
-                // Add sample orderbook data here
-            }
-        })
-        .to_string();
-        tokio::select! {
-            val = task =>  {println!("zz");}
-        }
     }
 }
