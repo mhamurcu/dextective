@@ -6,3 +6,4 @@ example.js
 yarn.lock
 /node_modules
 .vscode
+log.txt
